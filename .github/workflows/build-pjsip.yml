@@ -194,9 +194,18 @@ jobs:
 
           # Create build.gradle
           cat > /tmp/aar-project/build.gradle << 'EOF'
-          plugins {
-              id 'com.android.library'
+          buildscript {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:8.5.0'
+              }
           }
+
+          apply plugin: 'com.android.library'
+
           android {
               namespace 'org.pjsip.pjsua2'
               compileSdk 34
@@ -214,13 +223,20 @@ jobs:
 
           # Create settings.gradle
           cat > /tmp/aar-project/settings.gradle << 'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
           rootProject.name = 'pjsip-bangla-call'
           EOF
 
           cd /tmp/aar-project
           gradle assembleRelease
 
-          cp build/outputs/aar/aar-project-release.aar /tmp/pjsip-bangla-call.aar
+          cp build/outputs/aar/pjsip-bangla-call-release.aar /tmp/pjsip-bangla-call.aar
 
       - name: List Build Outputs (Debug)
         if: always()
