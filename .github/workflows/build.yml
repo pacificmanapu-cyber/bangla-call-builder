@@ -1,0 +1,43 @@
+name: Build Bangla-Call APK
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Private Repository
+        uses: actions/checkout@v4
+        with:
+          repository: pacificmanapu-cyber/Bangla-Call
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Expo & EAS CLI
+        run: npm install -g eas-cli
+
+      - name: Install Project Dependencies
+        run: npm install
+
+      - name: Build APK Locally
+        run: eas build --platform android --local --profile preview --non-interactive
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bangla-call-apk
+          path: build/*.apk
+
