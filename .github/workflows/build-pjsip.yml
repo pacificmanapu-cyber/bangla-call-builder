@@ -170,45 +170,59 @@ jobs:
           mkdir -p /tmp/pjsip-output/armeabi-v7a/jniLibs
           find /tmp/pjproject-${PJSIP_VERSION}/pjsip-apps/src/swig -name "*.so" -exec cp {} /tmp/pjsip-output/armeabi-v7a/jniLibs/ \;
 
-      - name: Package AAR (Manual)
+      - name: Package AAR
         run: |
-          mkdir -p /tmp/aar-build/jni/arm64-v8a
-          mkdir -p /tmp/aar-build/jni/armeabi-v7a
+          mkdir -p /tmp/aar-project/src/main/jniLibs/arm64-v8a
+          mkdir -p /tmp/aar-project/src/main/jniLibs/armeabi-v7a
+          mkdir -p /tmp/aar-project/src/main/java
 
           # Copy native .so libraries
-          cp /tmp/pjsip-output/arm64-v8a/jniLibs/*.so /tmp/aar-build/jni/arm64-v8a/ 2>/dev/null || true
-          cp /tmp/pjsip-output/armeabi-v7a/jniLibs/*.so /tmp/aar-build/jni/armeabi-v7a/ 2>/dev/null || true
+          cp /tmp/pjsip-output/arm64-v8a/jniLibs/*.so /tmp/aar-project/src/main/jniLibs/arm64-v8a/ 2>/dev/null || true
+          cp /tmp/pjsip-output/armeabi-v7a/jniLibs/*.so /tmp/aar-project/src/main/jniLibs/armeabi-v7a/ 2>/dev/null || true
 
-          # Compile Java classes into classes.jar
-          mkdir -p /tmp/aar-build/classes
-          JAVA_SOURCES=$(find /tmp/pjsip-output/arm64-v8a/java -name "*.java" 2>/dev/null)
-          if [ -n "$JAVA_SOURCES" ]; then
-            find /tmp/pjsip-output/arm64-v8a/java -name "*.java" > /tmp/java_sources.txt
-            javac -source 8 -target 8 -d /tmp/aar-build/classes @/tmp/java_sources.txt 2>/dev/null || true
-            cd /tmp/aar-build/classes
-            jar cf /tmp/aar-build/classes.jar .
-            cd /tmp
-          else
-            # Create empty classes.jar
-            mkdir -p /tmp/aar-build/empty
-            cd /tmp/aar-build/empty
-            jar cf /tmp/aar-build/classes.jar .
-            cd /tmp
-          fi
+          # Copy Java wrappers
+          cp -r /tmp/pjsip-output/arm64-v8a/java/* /tmp/aar-project/src/main/java/ 2>/dev/null || true
 
           # Create AndroidManifest.xml
-          cat > /tmp/aar-build/AndroidManifest.xml << 'EOF'
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-            package="org.pjsip.pjsua2">
+          cat > /tmp/aar-project/src/main/AndroidManifest.xml << 'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.pjsip.pjsua2">
             <uses-permission android:name="android.permission.INTERNET" />
             <uses-permission android:name="android.permission.RECORD_AUDIO" />
             <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
           </manifest>
           EOF
 
-          # Package as AAR (AAR is just a ZIP with specific structure)
-          cd /tmp/aar-build
-          zip -r /tmp/pjsip-bangla-call.aar AndroidManifest.xml classes.jar jni/
+          # Create build.gradle
+          cat > /tmp/aar-project/build.gradle << 'EOF'
+          plugins {
+              id 'com.android.library'
+          }
+          android {
+              namespace 'org.pjsip.pjsua2'
+              compileSdk 34
+              defaultConfig {
+                  minSdk 24
+              }
+              sourceSets {
+                  main {
+                      jniLibs.srcDirs = ['src/main/jniLibs']
+                      java.srcDirs = ['src/main/java']
+                  }
+              }
+          }
+          EOF
+
+          # Create settings.gradle
+          cat > /tmp/aar-project/settings.gradle << 'EOF'
+          rootProject.name = 'pjsip-bangla-call'
+          include ':.'
+          EOF
+
+          cd /tmp/aar-project
+          gradle wrapper --gradle-version 8.7 || true
+          ./gradlew assembleRelease
+
+          cp build/outputs/aar/aar-project-release.aar /tmp/pjsip-bangla-call.aar
 
       - name: List Build Outputs (Debug)
         if: always()
