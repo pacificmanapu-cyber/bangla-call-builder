@@ -180,8 +180,10 @@ jobs:
           cp /tmp/pjsip-output/arm64-v8a/jniLibs/*.so /tmp/aar-project/src/main/jniLibs/arm64-v8a/ 2>/dev/null || true
           cp /tmp/pjsip-output/armeabi-v7a/jniLibs/*.so /tmp/aar-project/src/main/jniLibs/armeabi-v7a/ 2>/dev/null || true
 
-          # Copy Java wrappers
+          # Copy Java wrappers (ONLY the pjsua2 bindings, NOT the sample app)
           cp -r /tmp/pjsip-output/arm64-v8a/java/* /tmp/aar-project/src/main/java/ 2>/dev/null || true
+          # Remove the PJSIP sample app files — they reference Video/UI classes we don't need
+          rm -rf /tmp/aar-project/src/main/java/org/pjsip/pjsua2/app/ 2>/dev/null || true
 
           # Create AndroidManifest.xml
           cat > /tmp/aar-project/src/main/AndroidManifest.xml << 'EOF'
