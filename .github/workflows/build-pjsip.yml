@@ -24,8 +24,6 @@ jobs:
             build-essential \
             swig \
             nasm \
-            libasound2-dev \
-            libopus-dev \
             pkg-config \
             unzip \
             wget \
@@ -80,110 +78,126 @@ jobs:
 
       - name: Configure PJSIP (config_site.h)
         run: |
-          cat > /tmp/pjproject-${PJSIP_VERSION}/pjlib/include/pj/config_site.h << 'EOF'
+          cat > /tmp/pjproject-${PJSIP_VERSION}/pjlib/include/pj/config_site.h << 'EOFCONFIG'
           #define PJ_CONFIG_ANDROID 1
 
-          /* Enable built-in HD Voice codecs (Speex/G722) */
+          /* HD Voice codecs */
           #define PJMEDIA_HAS_SPEEX_CODEC 1
           #define PJMEDIA_HAS_G722_CODEC 1
 
-          /* Enable high quality audio settings */
+          /* Security */
           #define PJMEDIA_HAS_SRTP 1
           #define PJMEDIA_SRTP_HAS_DTLS 1
 
-          /* ICE/STUN/TURN for NAT traversal (fixes one-way audio) */
+          /* NAT traversal - fixes one-way audio */
           #define PJ_ICE_MAX_CAND 32
           #define PJ_ICE_MAX_CHECKS 150
           #define PJ_STUN_KEEP_ALIVE_SEC 15
 
-          /* Audio quality optimization */
+          /* Audio quality */
           #define PJMEDIA_SOUND_BUFFER_COUNT 4
           #define PJMEDIA_SND_DEFAULT_REC_LATENCY 100
           #define PJMEDIA_SND_DEFAULT_PLAY_LATENCY 100
 
-          /* Increase max calls */
+          /* Capacity */
           #define PJSUA_MAX_CALLS 4
           #define PJSUA_MAX_ACC 4
 
-          /* Enable call recording */
-          #define PJMEDIA_HAS_VIDEO 0
+          /* Android audio */
           #define PJMEDIA_AUDIO_DEV_HAS_ANDROID_JNI 1
-          #define PJMEDIA_AUDIO_DEV_HAS_OBOE 1
+          #define PJMEDIA_AUDIO_DEV_HAS_OBOE 0
 
-          /* Disable unused features to reduce size */
+          /* Disable video, enable TLS */
           #define PJMEDIA_HAS_VIDEO 0
           #define PJSIP_HAS_TLS_TRANSPORT 1
 
           #include <pj/config_site_sample.h>
-          EOF
+          EOFCONFIG
 
       - name: Build PJSIP for arm64-v8a
         run: |
           cd /tmp/pjproject-${PJSIP_VERSION}
           make distclean || true
+          # Clean any stale .depend files
+          find . -name "*.depend" -exec rm -f {} \;
 
           export ANDROID_NDK_ROOT="/tmp/android-ndk-${NDK_VERSION}"
           export PATH="${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"
 
           TARGET_ABI=arm64-v8a ./configure-android \
             --use-ndk-cflags \
-            --with-ssl=/tmp/openssl-output/arm64-v8a \
-            --enable-shared \
-            --prefix=/tmp/pjsip-output/arm64-v8a
+            --with-ssl=/tmp/openssl-output/arm64-v8a
 
           make dep && make -j$(nproc)
-          make install
 
-          # Build PJSUA2 Java bindings
+          # Build PJSUA2 Java/JNI bindings via SWIG
           cd pjsip-apps/src/swig
           make -j$(nproc)
 
-          # Copy outputs
-          mkdir -p /tmp/pjsip-output/arm64-v8a/java
-          cp -r java/output/* /tmp/pjsip-output/arm64-v8a/java/ 2>/dev/null || true
-          cp -r java/android/app/src/main/java/* /tmp/pjsip-output/arm64-v8a/java/ 2>/dev/null || true
-
+          # Collect outputs
           mkdir -p /tmp/pjsip-output/arm64-v8a/jniLibs
-          find /tmp/pjproject-${PJSIP_VERSION} -name "*.so" -exec cp {} /tmp/pjsip-output/arm64-v8a/jniLibs/ \;
+          mkdir -p /tmp/pjsip-output/arm64-v8a/java
+
+          # The SWIG build produces libpjsua2.so in the java/android output
+          find /tmp/pjproject-${PJSIP_VERSION}/pjsip-apps/src/swig -name "*.so" -exec cp {} /tmp/pjsip-output/arm64-v8a/jniLibs/ \;
+
+          # Copy Java wrapper classes
+          if [ -d "java/android/app/src/main/java" ]; then
+            cp -r java/android/app/src/main/java/* /tmp/pjsip-output/arm64-v8a/java/
+          fi
+          if [ -d "java/output" ]; then
+            cp -r java/output/* /tmp/pjsip-output/arm64-v8a/java/
+          fi
 
       - name: Build PJSIP for armeabi-v7a
         run: |
           cd /tmp/pjproject-${PJSIP_VERSION}
           make distclean || true
+          find . -name "*.depend" -exec rm -f {} \;
 
           export ANDROID_NDK_ROOT="/tmp/android-ndk-${NDK_VERSION}"
           export PATH="${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"
 
           TARGET_ABI=armeabi-v7a ./configure-android \
             --use-ndk-cflags \
-            --with-ssl=/tmp/openssl-output/armeabi-v7a \
-            --enable-shared \
-            --prefix=/tmp/pjsip-output/armeabi-v7a
+            --with-ssl=/tmp/openssl-output/armeabi-v7a
 
           make dep && make -j$(nproc)
-          make install
 
           cd pjsip-apps/src/swig
           make -j$(nproc)
 
           mkdir -p /tmp/pjsip-output/armeabi-v7a/jniLibs
-          find /tmp/pjproject-${PJSIP_VERSION} -name "*.so" -exec cp {} /tmp/pjsip-output/armeabi-v7a/jniLibs/ \;
+          find /tmp/pjproject-${PJSIP_VERSION}/pjsip-apps/src/swig -name "*.so" -exec cp {} /tmp/pjsip-output/armeabi-v7a/jniLibs/ \;
 
-      - name: Package AAR
+      - name: Package AAR (Manual)
         run: |
-          mkdir -p /tmp/aar-project/src/main/jniLibs/arm64-v8a
-          mkdir -p /tmp/aar-project/src/main/jniLibs/armeabi-v7a
-          mkdir -p /tmp/aar-project/src/main/java
+          mkdir -p /tmp/aar-build/jni/arm64-v8a
+          mkdir -p /tmp/aar-build/jni/armeabi-v7a
 
-          # Copy .so files
-          cp /tmp/pjsip-output/arm64-v8a/jniLibs/*.so /tmp/aar-project/src/main/jniLibs/arm64-v8a/ 2>/dev/null || true
-          cp /tmp/pjsip-output/armeabi-v7a/jniLibs/*.so /tmp/aar-project/src/main/jniLibs/armeabi-v7a/ 2>/dev/null || true
+          # Copy native .so libraries
+          cp /tmp/pjsip-output/arm64-v8a/jniLibs/*.so /tmp/aar-build/jni/arm64-v8a/ 2>/dev/null || true
+          cp /tmp/pjsip-output/armeabi-v7a/jniLibs/*.so /tmp/aar-build/jni/armeabi-v7a/ 2>/dev/null || true
 
-          # Copy Java bindings
-          cp -r /tmp/pjsip-output/arm64-v8a/java/* /tmp/aar-project/src/main/java/ 2>/dev/null || true
+          # Compile Java classes into classes.jar
+          mkdir -p /tmp/aar-build/classes
+          JAVA_SOURCES=$(find /tmp/pjsip-output/arm64-v8a/java -name "*.java" 2>/dev/null)
+          if [ -n "$JAVA_SOURCES" ]; then
+            find /tmp/pjsip-output/arm64-v8a/java -name "*.java" > /tmp/java_sources.txt
+            javac -source 8 -target 8 -d /tmp/aar-build/classes @/tmp/java_sources.txt 2>/dev/null || true
+            cd /tmp/aar-build/classes
+            jar cf /tmp/aar-build/classes.jar .
+            cd /tmp
+          else
+            # Create empty classes.jar
+            mkdir -p /tmp/aar-build/empty
+            cd /tmp/aar-build/empty
+            jar cf /tmp/aar-build/classes.jar .
+            cd /tmp
+          fi
 
           # Create AndroidManifest.xml
-          cat > /tmp/aar-project/src/main/AndroidManifest.xml << 'EOF'
+          cat > /tmp/aar-build/AndroidManifest.xml << 'EOF'
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
             package="org.pjsip.pjsua2">
             <uses-permission android:name="android.permission.INTERNET" />
@@ -192,82 +206,23 @@ jobs:
           </manifest>
           EOF
 
-          # Create build.gradle
-          cat > /tmp/aar-project/build.gradle << 'EOF'
-          plugins {
-              id 'com.android.library'
-          }
-
-          android {
-              namespace 'org.pjsip.pjsua2'
-              compileSdk 36
-
-              defaultConfig {
-                  minSdk 24
-                  targetSdk 36
-              }
-
-              sourceSets {
-                  main {
-                      jniLibs.srcDirs = ['src/main/jniLibs']
-                      java.srcDirs = ['src/main/java']
-                  }
-              }
-          }
-          EOF
-
-          # Create settings.gradle
-          cat > /tmp/aar-project/settings.gradle << 'EOF'
-          rootProject.name = 'pjsip-bangla-call'
-          include ':.'
-          EOF
-
-          # Create gradle wrapper
-          cd /tmp/aar-project
-          gradle wrapper --gradle-version 8.7 || true
-
-          # Build the AAR
-          cd /tmp/aar-project
-          ./gradlew assembleRelease || {
-            echo "Gradle AAR build failed, falling back to manual packaging..."
-            # Manual AAR packaging fallback
-            cd /tmp/aar-project
-            mkdir -p /tmp/aar-build/jni/arm64-v8a
-            mkdir -p /tmp/aar-build/jni/armeabi-v7a
-            cp src/main/jniLibs/arm64-v8a/*.so /tmp/aar-build/jni/arm64-v8a/ 2>/dev/null || true
-            cp src/main/jniLibs/armeabi-v7a/*.so /tmp/aar-build/jni/armeabi-v7a/ 2>/dev/null || true
-
-            # Compile Java classes
-            mkdir -p /tmp/aar-build/classes
-            find src/main/java -name "*.java" > /tmp/java_sources.txt
-            if [ -s /tmp/java_sources.txt ]; then
-              javac -source 17 -target 17 -d /tmp/aar-build/classes @/tmp/java_sources.txt 2>/dev/null || true
-            fi
-
-            # Create classes.jar
-            cd /tmp/aar-build/classes
-            jar cf /tmp/aar-build/classes.jar . 2>/dev/null || true
-
-            # Package AAR (which is just a ZIP with specific structure)
-            cd /tmp/aar-build
-            cp /tmp/aar-project/src/main/AndroidManifest.xml .
-            zip -r /tmp/pjsip-bangla-call.aar AndroidManifest.xml classes.jar jni/
-          }
-
-          # Copy the final AAR
-          find /tmp/aar-project -name "*.aar" -exec cp {} /tmp/pjsip-bangla-call.aar \; 2>/dev/null || true
+          # Package as AAR (AAR is just a ZIP with specific structure)
+          cd /tmp/aar-build
+          zip -r /tmp/pjsip-bangla-call.aar AndroidManifest.xml classes.jar jni/
 
       - name: List Build Outputs (Debug)
         if: always()
         run: |
-          echo "=== PJSIP arm64 output ==="
+          echo "=== PJSIP arm64 .so files ==="
           ls -la /tmp/pjsip-output/arm64-v8a/jniLibs/ 2>/dev/null || echo "No arm64 .so files"
-          echo "=== PJSIP armv7 output ==="
+          echo "=== PJSIP armv7 .so files ==="
           ls -la /tmp/pjsip-output/armeabi-v7a/jniLibs/ 2>/dev/null || echo "No armv7 .so files"
           echo "=== Java bindings ==="
           find /tmp/pjsip-output -name "*.java" 2>/dev/null | head -20 || echo "No Java files"
           echo "=== Final AAR ==="
           ls -la /tmp/pjsip-bangla-call.aar 2>/dev/null || echo "No AAR file"
+          echo "=== AAR Contents ==="
+          unzip -l /tmp/pjsip-bangla-call.aar 2>/dev/null || echo "No AAR to list"
 
       - name: Upload PJSIP AAR
         if: always()
