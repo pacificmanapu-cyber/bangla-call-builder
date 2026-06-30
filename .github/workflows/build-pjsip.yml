@@ -83,8 +83,9 @@ jobs:
           cat > /tmp/pjproject-${PJSIP_VERSION}/pjlib/include/pj/config_site.h << 'EOF'
           #define PJ_CONFIG_ANDROID 1
 
-          /* Enable Opus codec for crystal-clear audio */
-          #define PJMEDIA_HAS_OPUS_CODEC 1
+          /* Enable built-in HD Voice codecs (Speex/G722) */
+          #define PJMEDIA_HAS_SPEEX_CODEC 1
+          #define PJMEDIA_HAS_G722_CODEC 1
 
           /* Enable high quality audio settings */
           #define PJMEDIA_HAS_SRTP 1
@@ -127,7 +128,6 @@ jobs:
           TARGET_ABI=arm64-v8a ./configure-android \
             --use-ndk-cflags \
             --with-ssl=/tmp/openssl-output/arm64-v8a \
-            --with-opus=/usr \
             --enable-shared \
             --prefix=/tmp/pjsip-output/arm64-v8a
 
@@ -157,7 +157,6 @@ jobs:
           TARGET_ABI=armeabi-v7a ./configure-android \
             --use-ndk-cflags \
             --with-ssl=/tmp/openssl-output/armeabi-v7a \
-            --with-opus=/usr \
             --enable-shared \
             --prefix=/tmp/pjsip-output/armeabi-v7a
 
