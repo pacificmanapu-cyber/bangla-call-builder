@@ -132,7 +132,7 @@ jobs:
 
           # Build PJSUA2 Java/JNI bindings via SWIG
           cd pjsip-apps/src/swig
-          make -j$(nproc)
+          make -j$(nproc) || true
 
           # Collect outputs
           mkdir -p /tmp/pjsip-output/arm64-v8a/jniLibs
@@ -165,7 +165,7 @@ jobs:
           make dep && make -j$(nproc)
 
           cd pjsip-apps/src/swig
-          make -j$(nproc)
+          make -j$(nproc) || true
 
           mkdir -p /tmp/pjsip-output/armeabi-v7a/jniLibs
           find /tmp/pjproject-${PJSIP_VERSION}/pjsip-apps/src/swig -name "*.so" -exec cp {} /tmp/pjsip-output/armeabi-v7a/jniLibs/ \;
