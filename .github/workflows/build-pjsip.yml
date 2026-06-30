@@ -141,13 +141,11 @@ jobs:
           # The SWIG build produces libpjsua2.so in the java/android output
           find /tmp/pjproject-${PJSIP_VERSION}/pjsip-apps/src/swig -name "*.so" -exec cp {} /tmp/pjsip-output/arm64-v8a/jniLibs/ \;
 
-          # Copy Java wrapper classes
-          if [ -d "java/android/app/src/main/java" ]; then
-            cp -r java/android/app/src/main/java/* /tmp/pjsip-output/arm64-v8a/java/
-          fi
-          if [ -d "java/output" ]; then
-            cp -r java/output/* /tmp/pjsip-output/arm64-v8a/java/
-          fi
+          # Safely copy all generated Java wrappers (pjsua2)
+          mkdir -p /tmp/pjsip-output/arm64-v8a/java/org/pjsip/pjsua2
+          find java -name "*.java" | grep "org/pjsip/pjsua2" | while read -r file; do
+            cp "$file" "/tmp/pjsip-output/arm64-v8a/java/org/pjsip/pjsua2/"
+          done
 
       - name: Build PJSIP for armeabi-v7a
         run: |
