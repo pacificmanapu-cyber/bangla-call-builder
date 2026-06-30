@@ -215,12 +215,10 @@ jobs:
           # Create settings.gradle
           cat > /tmp/aar-project/settings.gradle << 'EOF'
           rootProject.name = 'pjsip-bangla-call'
-          include ':.'
           EOF
 
           cd /tmp/aar-project
-          gradle wrapper --gradle-version 8.7 || true
-          ./gradlew assembleRelease
+          gradle assembleRelease
 
           cp build/outputs/aar/aar-project-release.aar /tmp/pjsip-bangla-call.aar
 
