@@ -45,5 +45,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: bangla-call-apk
-          path: build/*.apk
+          path: "*.apk"
 
