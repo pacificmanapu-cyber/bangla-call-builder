@@ -234,6 +234,11 @@ jobs:
           EOF
 
           cd /tmp/aar-project
+
+          # Tell Gradle where the Android SDK is
+          echo "sdk.dir=/usr/local/lib/android/sdk" > local.properties
+          export ANDROID_HOME=/usr/local/lib/android/sdk
+
           gradle assembleRelease
 
           cp build/outputs/aar/pjsip-bangla-call-release.aar /tmp/pjsip-bangla-call.aar
