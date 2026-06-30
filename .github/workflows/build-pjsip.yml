@@ -40,7 +40,7 @@ jobs:
       - name: Download Android NDK
         run: |
           cd /tmp
-          wget -q "https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux.zip" -O ndk.zip
+          wget -q "https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux-x86_64.zip" -O ndk.zip
           unzip -q ndk.zip
           echo "ANDROID_NDK_ROOT=/tmp/android-ndk-${NDK_VERSION}" >> $GITHUB_ENV
 
