@@ -206,6 +206,13 @@ jobs:
 
           apply plugin: 'com.android.library'
 
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+
           android {
               namespace 'org.pjsip.pjsua2'
               compileSdk 34
